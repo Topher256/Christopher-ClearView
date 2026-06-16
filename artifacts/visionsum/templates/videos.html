@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block title %}My Videos — Christopher Clear View{% endblock %}
+{% block page_title %}My Videos{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+  <div>
+    <h2 style="font-size:1.3rem;font-weight:800;">All Uploaded Videos</h2>
+    <p style="color:var(--text-muted);font-size:.875rem;">Manage and delete your uploaded CCTV footage</p>
+  </div>
+  <a href="{{ url_for('upload') }}" class="btn-orange">
+    <i class="fa-solid fa-plus"></i> Upload New
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if videos %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Filename</th>
+            <th>Size</th>
+            <th>Duration</th>
+            <th>Resolution</th>
+            <th>Status</th>
+            <th>Uploaded</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for v in videos %}
+          <tr>
+            <td style="font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              {{ v['original_name'] }}
+            </td>
+            <td style="white-space:nowrap;">{{ "%.1f"|format(v['file_size']/1024/1024) }} MB</td>
+            <td>{% if v['duration'] %}{{ "%.1f"|format(v['duration']) }}s{% else %}—{% endif %}</td>
+            <td style="white-space:nowrap;">
+              {% if v['width'] %}{{ v['width'] }}×{{ v['height'] }}{% else %}—{% endif %}
+            </td>
+            <td>
+              <span class="badge {% if v['status']=='ready' %}badge-success{% elif v['status']=='uploaded' %}badge-warning{% else %}badge-gray{% endif %}">
+                {{ v['status'] }}
+              </span>
+            </td>
+            <td style="font-size:.8rem;color:var(--text-muted);">{{ v['uploaded_at'][:16] }}</td>
+            <td>
+              <div style="display:flex;gap:.4rem;align-items:center;">
+                <a href="{{ url_for('process_page', video_id=v['id']) }}"
+                   class="btn-orange btn-sm">
+                  <i class="fa-solid fa-play"></i> Process
+                </a>
+                <form method="POST"
+                      action="{{ url_for('delete_video_route', video_id=v['id']) }}"
+                      onsubmit="return confirm('Delete {{ v['original_name'] }}? This cannot be undone.');"
+                      style="margin:0;">
+                  <button type="submit" class="btn-danger btn-sm">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="fa-solid fa-video-slash"></i></div>
+      <h4>No videos yet</h4>
+      <p>Upload a CCTV video to get started.</p>
+      <a href="{{ url_for('upload') }}" class="btn-orange" style="margin-top:1rem;">
+        <i class="fa-solid fa-cloud-arrow-up"></i> Upload Video
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

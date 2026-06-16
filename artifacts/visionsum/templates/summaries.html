@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}My Summaries — Christopher Clear View{% endblock %}
+{% block page_title %}My Summaries{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;">
+  <div>
+    <h2 style="font-size:1.3rem;font-weight:800;">All Summaries</h2>
+    <p style="color:var(--text-muted);font-size:.875rem;">All your generated video summaries</p>
+  </div>
+  <a href="{{ url_for('upload') }}" class="btn-orange">
+    <i class="fa-solid fa-plus"></i> New Video
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-body" style="padding:0;">
+    {% if summaries %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Video</th>
+            <th>Original</th>
+            <th>Summary</th>
+            <th>Compression</th>
+            <th>Events</th>
+            <th>Status</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in summaries %}
+          <tr>
+            <td style="font-weight:600;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+              {{ s['original_name'] }}
+            </td>
+            <td>{% if s['original_dur'] %}{{ "%.1f"|format(s['original_dur']) }}s{% else %}—{% endif %}</td>
+            <td>{% if s['summary_dur'] %}{{ "%.1f"|format(s['summary_dur']) }}s{% else %}—{% endif %}</td>
+            <td><span class="badge badge-orange">{{ s['compression'] }}%</span></td>
+            <td>{{ s['events_detected'] }}</td>
+            <td>
+              {% if s['status'] == 'done' %}
+                <span class="badge badge-success">Done</span>
+              {% elif s['status'] == 'processing' %}
+                <span class="badge badge-warning">Processing…</span>
+              {% else %}
+                <span class="badge badge-danger">Error</span>
+              {% endif %}
+            </td>
+            <td style="font-size:.8rem;color:var(--text-muted);">{{ s['created_at'][:16] }}</td>
+            <td>
+              <div style="display:flex;gap:.4rem;align-items:center;">
+                {% if s['status'] == 'done' %}
+                  <a href="{{ url_for('results', summary_id=s['id']) }}" class="btn-orange btn-sm">View</a>
+                  <a href="{{ url_for('download_summary', summary_id=s['id']) }}" class="btn-outline btn-sm">
+                    <i class="fa-solid fa-download"></i>
+                  </a>
+                {% elif s['status'] == 'processing' %}
+                  <a href="{{ url_for('processing_status', summary_id=s['id']) }}" class="btn-outline btn-sm">Status</a>
+                {% endif %}
+                <form method="POST"
+                      action="{{ url_for('delete_summary_route', summary_id=s['id']) }}"
+                      onsubmit="return confirm('Delete this summary? This cannot be undone.');"
+                      style="margin:0;">
+                  <button type="submit" class="btn-danger btn-sm">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon"><i class="fa-solid fa-film"></i></div>
+      <h4>No summaries yet</h4>
+      <p>Upload and process a video to generate your first summary.</p>
+      <a href="{{ url_for('upload') }}" class="btn-orange" style="margin-top:1rem;">
+        <i class="fa-solid fa-cloud-arrow-up"></i> Upload Video
+      </a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

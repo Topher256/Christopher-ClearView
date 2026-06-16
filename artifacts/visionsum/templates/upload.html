@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Upload Video — Christopher Clear View{% endblock %}
+{% block page_title %}Upload Video{% endblock %}
+
+{% block content %}
+<div style="max-width:760px;margin:0 auto;">
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">
+        <i class="fa-solid fa-cloud-arrow-up" style="color:var(--orange)"></i> Upload CCTV Video
+      </span>
+    </div>
+    <div class="card-body">
+
+      <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon" id="uploadIcon">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+        <h4 id="uploadHint">Drag &amp; drop your video here</h4>
+        <p id="uploadSub">or click to browse files</p>
+        <p style="margin-top:.75rem;">
+          <span class="badge badge-gray">MP4</span>
+          <span class="badge badge-gray">AVI</span>
+          <span class="badge badge-gray">MOV</span>
+          <span class="badge badge-gray">MKV</span>
+        </p>
+        <p style="font-size:.78rem;color:var(--text-muted);margin-top:.5rem;">Maximum file size: 500 MB</p>
+        <input type="file" id="videoInput" name="video"
+               accept=".mp4,.avi,.mov,.mkv" style="display:none;">
+      </div>
+
+      <div id="fileInfo"
+           style="display:none;margin-top:1rem;padding:.85rem 1rem;
+                  background:var(--orange-light);border:1px solid var(--orange-mid);
+                  border-radius:var(--radius-sm);font-size:.875rem;">
+      </div>
+
+      <div style="display:none;margin-top:1rem;" id="previewWrap">
+        <div class="video-container">
+          <video id="videoPreview" controls muted style="max-height:220px;"></video>
+        </div>
+      </div>
+
+      <!-- Real upload progress — driven by XHR in script.js -->
+      <div id="uploadProgress" style="display:none;margin-top:1.25rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.4rem;">
+          <span id="uploadStatusLabel" style="font-size:.875rem;font-weight:600;">Uploading…</span>
+          <span id="uploadPct" style="font-size:.875rem;font-weight:700;color:var(--orange);">0%</span>
+        </div>
+        <div class="progress" style="height:12px;margin-bottom:.5rem;">
+          <div class="progress-bar" id="uploadBar" style="width:0%;transition:width .15s linear;"></div>
+        </div>
+        <div style="display:flex;gap:1.5rem;font-size:.78rem;color:var(--text-muted);">
+          <span id="uploadLoaded">0 MB / 0 MB</span>
+          <span id="uploadSpeed"></span>
+          <span id="uploadEta"></span>
+        </div>
+      </div>
+
+      <div style="margin-top:1.5rem;display:flex;gap:1rem;align-items:center;" id="submitRow">
+        <button type="button" class="btn-orange" id="submitBtn"
+                onclick="startUpload()">
+          <i class="fa-solid fa-upload"></i> Upload Video
+        </button>
+        <span style="font-size:.82rem;color:var(--text-muted);">
+          After uploading you'll configure compression settings.
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:1.5rem;">
+    <div class="card-header"><span class="card-title">Tips for Best Results</span></div>
+    <div class="card-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+        {% for icon, title, desc in [
+          ('fa-film',   'Use common formats',   'MP4 / H.264 gives the best compatibility.'),
+          ('fa-clock',  'Longer videos, bigger savings', 'The system shines on 30-min+ recordings.'),
+          ('fa-sun',    'Good lighting helps',  'Well-lit scenes improve motion detection accuracy.'),
+          ('fa-camera', 'Static camera',        'Fixed cameras produce better frame differencing results.'),
+        ] %}
+        <div style="display:flex;gap:.6rem;align-items:flex-start;
+                    padding:.6rem;background:var(--gray-light);border-radius:var(--radius-sm);">
+          <i class="fa-solid {{ icon }}"
+             style="color:var(--orange);margin-top:.15rem;flex-shrink:0;"></i>
+          <div>
+            <div style="font-weight:600;font-size:.85rem;">{{ title }}</div>
+            <div style="font-size:.78rem;color:var(--text-muted);">{{ desc }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

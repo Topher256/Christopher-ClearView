@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Processing — Christopher Clear View{% endblock %}
+{% block page_title %}Processing Video{% endblock %}
+
+{% block content %}
+<div style="max-width:600px;margin:0 auto;text-align:center;">
+
+  <div class="card">
+    <div class="card-body" style="padding:3rem 2rem;">
+
+      <div class="spinner"></div>
+
+      <h2 style="font-weight:800;margin-bottom:.5rem;">Analysing Your Video</h2>
+      <p style="color:var(--text-muted);margin-bottom:2rem;">
+        Running temporal analysis on <strong>{{ video['original_name'] }}</strong>
+      </p>
+
+      <div class="progress" style="margin-bottom:.75rem;height:10px;">
+        <div class="progress-bar" id="progressBar" style="width:5%;"></div>
+      </div>
+      <p id="statusText" style="font-size:.875rem;color:var(--text-muted);margin-bottom:2rem;">
+        Initialising pipeline…
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:.6rem;text-align:left;max-width:360px;margin:0 auto 2rem;">
+        {% for step in [
+          'Frame extraction','Preprocessing','Frame differencing',
+          'Motion detection','Activity segmentation','Summary generation'
+        ] %}
+        <div class="process-step" style="display:flex;align-items:center;gap:.75rem;font-size:.875rem;opacity:.4;transition:all .3s;">
+          <i class="fa-solid fa-circle-check" style="color:var(--orange);"></i>
+          {{ step }}
+        </div>
+        {% endfor %}
+      </div>
+
+      <p style="font-size:.78rem;color:var(--text-muted);">
+        This page will automatically redirect when processing is complete.
+      </p>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.process-step').forEach((el, i) => {
+    el.style.opacity = i === 0 ? '1' : '.4';
+  });
+  pollStatus({{ summary['id'] }});
+</script>
+<style>
+  .process-step.active { opacity: 1 !important; }
+</style>
+{% endblock %}

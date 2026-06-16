@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Christopher Clear View — CCTV Video Summarization</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+
+<section class="landing-hero">
+  <nav class="landing-nav">
+    <a href="/" class="brand">
+      <i class="fa-solid fa-video-camera"></i>
+      Christopher <span>Clear View</span>
+    </a>
+    <div class="landing-nav-links">
+      <a href="#features">Features</a>
+      <a href="#pipeline">How It Works</a>
+      <a href="#about-anchor">About</a>
+      {% if user %}
+        <a href="{{ url_for('dashboard') }}" style="color:var(--orange);font-weight:700;">Dashboard →</a>
+      {% else %}
+        <a href="{{ url_for('login') }}">Login</a>
+        <a href="{{ url_for('register') }}" style="background:var(--orange);color:#fff;padding:.4rem .9rem;border-radius:6px;font-weight:600;">Get Started</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <div class="hero-content">
+    <div class="hero-badge">
+      <i class="fa-solid fa-bolt"></i>
+      Built with Temporal Analysis
+    </div>
+    <h1 class="hero-title">
+      Stop watching<br>hours of <em>footage</em>.<br>Watch minutes.
+    </h1>
+    <p class="hero-sub">
+      Christopher Clear View automatically detects motion events in CCTV footage using
+      temporal analysis — frame differencing, background subtraction, and
+      scene change detection — and distills hours of recording into a
+      concise, meaningful summary.
+    </p>
+    <div class="hero-cta">
+      <a href="{{ url_for('register') }}" class="btn-primary-hero">
+        <i class="fa-solid fa-rocket"></i> Start Summarizing
+      </a>
+      <a href="#features" class="btn-outline-hero">
+        <i class="fa-solid fa-circle-play"></i> See How It Works
+      </a>
+    </div>
+  </div>
+
+  <div class="hero-stats">
+    <div class="stat-item">
+      <div class="stat-num">90%</div>
+      <div class="stat-lbl">Time Saved</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">4</div>
+      <div class="stat-lbl">Analysis Methods</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">MP4 · AVI · MOV · MKV</div>
+      <div class="stat-lbl">Formats Supported</div>
+    </div>
+  </div>
+</section>
+
+<section class="features-section" id="features">
+  <div class="section-label">Core Capabilities</div>
+  <h2 class="section-title">Everything you need for smart surveillance review</h2>
+  <p class="section-sub">From upload to summarized video in minutes.</p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fa-solid fa-film"></i></div>
+      <h4>Frame Differencing</h4>
+      <p>Pixel-level comparison between consecutive frames to isolate genuine change from static backgrounds.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fa-solid fa-person-running"></i></div>
+      <h4>Motion Detection</h4>
+      <p>MOG2 background subtraction robustly identifies foreground objects — people, vehicles, and more.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fa-solid fa-timeline"></i></div>
+      <h4>Temporal Segmentation</h4>
+      <p>Groups active frames into coherent events with start/end timestamps and intensity scores.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fa-solid fa-scissors"></i></div>
+      <h4>Smart Compression</h4>
+      <p>Choose 30–90% compression. The engine prioritises highest-intensity segments.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fa-solid fa-chart-bar"></i></div>
+      <h4>Rich Reports</h4>
+      <p>Download PDF and CSV reports with event logs, motion statistics, and timeline data.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon"><i class="fa-solid fa-shield-halved"></i></div>
+      <h4>Secure &amp; Private</h4>
+      <p>All videos are stored locally. Authentication gates every page. Admin panel for oversight.</p>
+    </div>
+  </div>
+</section>
+
+<section class="pipeline-section" id="pipeline">
+  <div class="section-label" style="color:#FED7AA;">Processing Pipeline</div>
+  <h2 class="section-title" style="color:#fff;">How Temporal Analysis Works</h2>
+  <div class="pipeline-steps">
+    {% set steps = [
+      ('📥','Input Video'),('🖼','Frame Extraction'),('⚙️','Preprocessing'),
+      ('🔍','Frame Differencing'),('🚶','Motion Detection'),('📊','Feature Extraction'),
+      ('📍','Activity Segmentation'),('✂️','Redundancy Removal'),('🎬','Summary Output')
+    ] %}
+    {% for icon, label in steps %}
+      <div class="pipeline-step">
+        <div class="step-circle">{{ icon }}</div>
+        <div class="step-label">{{ label }}</div>
+      </div>
+      {% if not loop.last %}
+        <div class="step-arrow">→</div>
+      {% endif %}
+    {% endfor %}
+  </div>
+</section>
+
+<section class="features-section" id="about-anchor" style="background:var(--gray-light);">
+  <div class="section-label">The Project</div>
+  <h2 class="section-title">About Christopher Clear View</h2>
+  <div style="max-width:700px;margin:0 auto;text-align:center;color:var(--text-muted);line-height:1.8;">
+    Christopher Clear View is an undergraduate capstone project demonstrating how temporal analysis
+    dramatically reduces the cognitive load of CCTV review. Built with Python, Flask,
+    OpenCV, and SQLite, it implements four complementary motion-detection algorithms
+    and exposes them through a clean, modern web interface accessible on any device.
+  </div>
+</section>
+
+<section style="background:var(--orange);padding:4rem 3rem;text-align:center;">
+  <h2 style="color:#fff;font-size:2rem;font-weight:800;margin-bottom:.75rem;">Ready to cut review time by up to 90%?</h2>
+  <p style="color:rgba(255,255,255,.8);margin-bottom:2rem;">Create a free account and upload your first video today.</p>
+  <a href="{{ url_for('register') }}" class="btn-outline-hero">Create Free Account →</a>
+</section>
+
+<footer class="landing-footer">
+  <p>© 2026 Christopher Clear View · Built with Python, Flask &amp; OpenCV</p>
+</footer>
+
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+  <script>
+    setTimeeout(() => { 
+      const badge = document.querySelector('[data-replit-badge]') ||
+                    document.querySelector('a[href*="replit.com"]') ||
+                    document.querySelector('replit-badge');
+      if (badge) badge.remove();
+    }, 1000);
+  </script>
+</body>
+</html>

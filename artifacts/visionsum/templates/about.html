@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}About — Christopher Clear View{% endblock %}
+{% block page_title %}About{% endblock %}
+
+{% block content %}
+
+<div class="about-hero">
+  <h2 style="font-size:1.75rem;font-weight:800;margin-bottom:.5rem;">
+    Automated CCTV Video Summarization System
+  </h2>
+  <p style="color:rgba(255,255,255,.65);max-width:600px;line-height:1.7;">
+    Using Temporal Analysis to reduce surveillance review time by intelligently
+    identifying and preserving only the moments that matter.
+  </p>
+</div>
+
+<div style="display:grid;grid-template-columns:2fr 1fr;gap:1.5rem;margin-bottom:2rem;">
+  <div class="card">
+    <div class="card-header"><span class="card-title">Project Overview</span></div>
+    <div class="card-body" style="line-height:1.8;color:var(--text-muted);">
+      <p style="margin-bottom:1rem;">
+        <strong style="color:var(--text);">Christopher Clear View system</strong> is an undergraduate capstone prototype that demonstrates how
+        computer-vision–based temporal analysis can dramatically reduce the burden of
+        reviewing CCTV footage. Traditional surveillance review requires watching every
+        second of recorded video — a time-consuming and attention-fatiguing task.
+        Christopher Clear View system automates this by detecting periods of genuine activity and
+        discarding idle background footage.
+      </p>
+      <p style="margin-bottom:1rem;">
+        The system processes uploaded video files through a four-stage pipeline:
+        <em>preprocessing → temporal analysis → event detection → summarization.</em>
+        The output is a shorter video that chronologically preserves all meaningful
+        events at the user-chosen compression level.
+      </p>
+      <p>
+        All processing runs locally on the server — no footage is sent to external
+        services. Users authenticate before accessing any feature, and an admin panel
+        provides oversight of all uploaded assets.
+      </p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><span class="card-title">Technology Stack</span></div>
+    <div class="card-body" style="padding:1rem 1.5rem;">
+      {% for cat, items in [
+        ('Backend',  ['Python 3.x', 'Flask', 'SQLite']),
+        ('CV / AI',  ['OpenCV (MOG2)', 'NumPy', 'Frame Differencing']),
+        ('Frontend', ['HTML5 / CSS3', 'Inter Font', 'Vanilla JS']),
+        ('Reports',  ['ReportLab (PDF)', 'Python csv']),
+      ] %}
+      <div style="margin-bottom:1rem;">
+        <div style="font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;color:var(--orange);font-weight:700;margin-bottom:.4rem;">{{ cat }}</div>
+        {% for item in items %}
+        <span class="badge badge-gray" style="margin:.15rem;">{{ item }}</span>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:2rem;">
+  <div class="card-header"><span class="card-title">Temporal Analysis Pipeline</span></div>
+  <div class="card-body">
+    <div class="pipeline-visual" style="gap:.5rem;flex-wrap:wrap;">
+      {% for step in [
+        '📥 Input Video','🖼 Frame Extraction','⚙️ Preprocessing',
+        '🔍 Frame Differencing','🚶 Motion Detection','📊 Feature Extraction',
+        '📍 Activity Segmentation','✂️ Redundancy Removal','🎬 Summary Output'
+      ] %}
+        <div class="pipe-step"><div class="dot"></div>{{ step }}</div>
+        {% if not loop.last %}<span class="pipe-arrow">→</span>{% endif %}
+      {% endfor %}
+    </div>
+    <div style="margin-top:1.5rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
+      {% for title, desc in [
+        ('Frame Differencing','Computes per-pixel absolute difference between consecutive grayscale frames to detect change.'),
+        ('Background Subtraction','OpenCV MOG2 builds a statistical background model and isolates foreground objects.'),
+        ('Temporal Smoothing','Morphological dilation and erosion fill short gaps and remove isolated noise blips.'),
+        ('Activity Segmentation','Consecutive active frames are grouped into events with start/end timestamps and intensity scores.'),
+      ] %}
+      <div style="background:var(--orange-light);border:1px solid var(--orange-mid);border-radius:var(--radius-sm);padding:1rem;">
+        <div style="font-weight:700;color:var(--orange);margin-bottom:.4rem;font-size:.9rem;">{{ title }}</div>
+        <div style="font-size:.82rem;color:var(--text-muted);line-height:1.6;">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:2rem;">
+  <div class="card-header"><span class="card-title">System Modules</span></div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
+      {% for icon, title, desc in [
+        ('fa-lock','Authentication','Login, register, password management'),
+        ('fa-gauge','Dashboard','Stats, recent activity, quick start'),
+        ('fa-cloud-arrow-up','Upload','Drag-drop, progress bar, preview'),
+        ('fa-cogs','Preprocessing','Frame extraction, resize, grayscale, denoise'),
+        ('fa-magnifying-glass','Temporal Analysis','Differencing, MOG2, segmentation'),
+        ('fa-bolt','Event Detection','Classify motion type, store timestamps'),
+        ('fa-scissors','Summarizer','Clip selection, concatenation, output video'),
+        ('fa-eye','Viewer','Side-by-side comparison, timeline, download'),
+        ('fa-chart-bar','Reports','PDF &amp; CSV export with full statistics'),
+        ('fa-user-shield','Admin Panel','User mgmt, video oversight, logs'),
+      ] %}
+      <div style="display:flex;gap:.75rem;align-items:flex-start;padding:.75rem;border:1px solid var(--border);border-radius:var(--radius-sm);">
+        <div style="width:36px;height:36px;background:var(--orange-light);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--orange);flex-shrink:0;">
+          <i class="fa-solid {{ icon }}"></i>
+        </div>
+        <div>
+          <div style="font-weight:700;font-size:.875rem;">{{ title }}</div>
+          <div style="font-size:.78rem;color:var(--text-muted);">{{ desc }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
