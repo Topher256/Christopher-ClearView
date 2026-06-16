@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}VisionSum{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+</head>
+<body>
+<div class="app-wrapper">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar" id="sidebar">
+    <a href="{{ url_for('dashboard') }}" class="sidebar-brand">
+      <div class="brand-icon"><i class="fa-solid fa-video-camera"></i></div>
+      Vision<em>Sum</em>
+    </a>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Navigation</div>
+      <a href="{{ url_for('dashboard') }}" class="nav-item">
+        <i class="fa-solid fa-gauge nav-icon"></i> Dashboard
+      </a>
+      <a href="{{ url_for('about') }}" class="nav-item">
+        <i class="fa-solid fa-circle-info nav-icon"></i> About
+      </a>
+      <a href="{{ url_for('upload') }}" class="nav-item">
+        <i class="fa-solid fa-cloud-arrow-up nav-icon"></i> Upload Video
+      </a>
+      <a href="{{ url_for('summaries_list') }}" class="nav-item">
+        <i class="fa-solid fa-film nav-icon"></i> My Summaries
+      </a>
+      <a href="{{ url_for('reports') }}" class="nav-item">
+        <i class="fa-solid fa-chart-bar nav-icon"></i> Reports
+      </a>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Account</div>
+      <a href="{{ url_for('settings') }}" class="nav-item">
+        <i class="fa-solid fa-gear nav-icon"></i> Settings
+      </a>
+      {% if user and user['role'] == 'admin' %}
+      <a href="{{ url_for('admin') }}" class="nav-item">
+        <i class="fa-solid fa-user-shield nav-icon"></i> Admin Panel
+      </a>
+      {% endif %}
+      <a href="{{ url_for('logout') }}" class="nav-item">
+        <i class="fa-solid fa-arrow-right-from-bracket nav-icon"></i> Logout
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="user-mini">
+        <div class="avatar-sm">{{ user['username'][0].upper() if user else '?' }}</div>
+        <div class="user-mini-info">
+          <div class="user-mini-name">{{ user['username'] if user else 'Guest' }}</div>
+          <div class="user-mini-role">{{ user['role'].capitalize() if user else '' }}</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <div class="main-content">
+    <!-- Top bar -->
+    <div class="topbar">
+      <div style="display:flex;align-items:center;gap:1rem;">
+        <button onclick="toggleSidebar()" class="btn-outline btn-sm" style="display:none;" id="menuBtn">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <span class="topbar-title">{% block page_title %}Dashboard{% endblock %}</span>
+      </div>
+      <div class="topbar-actions">
+        <button class="dark-toggle" id="darkToggle" onclick="toggleDark()">🌙 Dark</button>
+        <a href="{{ url_for('upload') }}" class="btn-orange btn-sm">
+          <i class="fa-solid fa-plus"></i> New Video
+        </a>
+      </div>
+    </div>
+
+    <!-- Flash messages -->
+    <div style="padding:0 2rem;margin-top:1rem;">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="alert alert-{{ cat }}" data-auto>
+            <i class="fa-solid fa-circle-check"></i> {{ msg }}
+            <button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;">×</button>
+          </div>
+        {% endfor %}
+      {% endwith %}
+    </div>
+
+    <!-- Page body -->
+    <div class="page-body">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

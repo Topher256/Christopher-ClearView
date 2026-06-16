@@ -1,0 +1,140 @@
+"""
+summarizer.py — Video summarization engine.
+Selects active segments based on temporal analysis results and
+concatenates them into a single summarized output video using OpenCV.
+"""
+
+import cv2
+import numpy as np
+import os
+import time
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class VideoSummarizer:
+    """
+    Generates a summarized video from a list of (start_sec, end_sec) segments.
+    Uses OpenCV for frame-level control (no moviepy dependency at runtime).
+    """
+
+    def __init__(self, input_path: str, output_path: str):
+        self.input_path  = input_path
+        self.output_path = output_path
+
+    def summarize(self, segments: list, analysis: dict) -> dict:
+        """
+        Write selected segments to output_path.
+
+        segments : list of (start_sec, end_sec) tuples
+        analysis : dict returned by TemporalAnalyzer.analyse()
+        Returns  : dict with timing / compression stats
+        """
+        t_start = time.time()
+
+        fps          = analysis['fps']
+        width        = analysis.get('width',  640)
+        height       = analysis.get('height', 480)
+        total_dur    = analysis['duration']
+
+        cap = cv2.VideoCapture(self.input_path)
+        if not cap.isOpened():
+            raise IOError(f"Cannot open input video: {self.input_path}")
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out    = cv2.VideoWriter(self.output_path, fourcc, fps, (width, height))
+
+        frames_written = 0
+
+        for start_s, end_s in segments:
+            start_frame = int(start_s * fps)
+            end_frame   = int(end_s   * fps)
+
+            cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+
+            for _ in range(end_frame - start_frame):
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                # Ensure correct dimensions
+                if frame.shape[1] != width or frame.shape[0] != height:
+                    frame = cv2.resize(frame, (width, height))
+                out.write(frame)
+                frames_written += 1
+
+        cap.release()
+        out.release()
+
+        summary_dur  = frames_written / fps if fps > 0 else 0
+        proc_time    = time.time() - t_start
+        compression  = round((1 - summary_dur / total_dur) * 100, 1) if total_dur > 0 else 0
+
+        logger.info(
+            f"Summary written: {frames_written} frames, "
+            f"{summary_dur:.1f}s / {total_dur:.1f}s ({compression}% reduction)"
+        )
+
+        return {
+            'original_dur': round(total_dur, 2),
+            'summary_dur':  round(summary_dur, 2),
+            'compression':  compression,
+            'proc_time':    round(proc_time, 2),
+            'frames':       frames_written,
+        }
+
+
+def build_segments(analysis: dict, target_ratio: float) -> list:
+    """
+    Select segments to keep so that the output is approximately
+    (1 - target_ratio) of the original duration.
+
+    target_ratio: 0.30 → keep 70% | 0.70 → keep 30%
+    """
+    all_segments   = analysis['active_segments']
+    total_duration = analysis['duration']
+    target_keep    = total_duration * (1.0 - target_ratio)
+
+    if not all_segments:
+        # Fallback: keep first (1-ratio) portion
+        return [(0, target_keep)]
+
+    # Sort segments by motion intensity descending, then take until budget filled
+    events        = analysis['events']
+    scored        = sorted(events, key=lambda e: e['intensity'], reverse=True)
+
+    kept     = []
+    kept_dur = 0.0
+
+    for ev in scored:
+        seg_dur = ev['end'] - ev['start']
+        if kept_dur + seg_dur <= target_keep * 1.1:   # 10% tolerance
+            kept.append((ev['start'], ev['end']))
+            kept_dur += seg_dur
+        if kept_dur >= target_keep:
+            break
+
+    # Sort chronologically for output continuity
+    kept.sort(key=lambda x: x[0])
+
+    # If nothing kept, fall back to first portion
+    if not kept:
+        kept = [(0, min(target_keep, total_duration))]
+
+    return kept
+
+
+def summarize_video(input_path: str, output_path: str,
+                    analysis: dict, compression_pct: int) -> dict:
+    """
+    High-level entry point used by the Flask controller.
+
+    compression_pct: 30 | 50 | 70 | 90  (% of video to REMOVE)
+    """
+    ratio    = compression_pct / 100.0
+    segments = build_segments(analysis, target_ratio=ratio)
+
+    summarizer = VideoSummarizer(input_path, output_path)
+    stats      = summarizer.summarize(segments, analysis)
+    stats['segments'] = segments
+    return stats

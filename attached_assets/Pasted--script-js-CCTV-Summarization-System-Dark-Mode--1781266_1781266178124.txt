@@ -1,0 +1,250 @@
+/* script.js — CCTV Summarization System */
+
+// ── Dark Mode ─────────────────────────────────────────────────────────────────
+
+(function () {
+  const stored = localStorage.getItem('darkMode');
+  if (stored === 'on') document.body.classList.add('dark-mode');
+})();
+
+function toggleDark() {
+  document.body.classList.toggle('dark-mode');
+  const on = document.body.classList.contains('dark-mode');
+  localStorage.setItem('darkMode', on ? 'on' : 'off');
+  const btn = document.getElementById('darkToggle');
+  if (btn) btn.textContent = on ? '☀️ Light' : '🌙 Dark';
+}
+
+
+// ── Sidebar toggle (mobile) ───────────────────────────────────────────────────
+
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  if (sb) sb.classList.toggle('open');
+}
+
+
+// ── Upload drag-and-drop ──────────────────────────────────────────────────────
+
+function initUpload() {
+  const zone   = document.getElementById('uploadZone');
+  const input  = document.getElementById('videoInput');
+  const preview = document.getElementById('videoPreview');
+  const infoBox = document.getElementById('fileInfo');
+
+  if (!zone || !input) return;
+
+  zone.addEventListener('click', () => input.click());
+
+  zone.addEventListener('dragover', e => {
+    e.preventDefault();
+    zone.classList.add('dragover');
+  });
+
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length) handleFile(files[0]);
+  });
+
+  input.addEventListener('change', () => {
+    if (input.files.length) handleFile(input.files[0]);
+  });
+
+  function handleFile(file) {
+    const allowed = ['video/mp4', 'video/avi', 'video/quicktime', 'video/x-matroska',
+                     'video/x-msvideo', 'video/webm'];
+    // Allow by extension too
+    const ext = file.name.split('.').pop().toLowerCase();
+    const extOk = ['mp4','avi','mov','mkv'].includes(ext);
+
+    if (!extOk) {
+      showAlert('Unsupported file format. Please use MP4, AVI, MOV, or MKV.', 'danger');
+      return;
+    }
+
+    if (infoBox) {
+      const mb = (file.size / 1024 / 1024).toFixed(1);
+      infoBox.innerHTML = `
+        <span class="badge badge-success">✔ File Ready</span>
+        <strong class="ms-2">${file.name}</strong>
+        <span class="text-muted ms-2">(${mb} MB)</span>
+      `;
+      infoBox.style.display = 'block';
+    }
+
+    if (preview) {
+      const url = URL.createObjectURL(file);
+      preview.src = url;
+      preview.parentElement.style.display = 'block';
+    }
+
+    zone.querySelector('h4').textContent = '✔ File selected';
+  }
+}
+
+
+// ── Processing status poller ──────────────────────────────────────────────────
+
+function pollStatus(summaryId, videoId) {
+  const bar    = document.getElementById('progressBar');
+  const status = document.getElementById('statusText');
+  const steps  = document.querySelectorAll('.process-step');
+  let progress = 0;
+  let stepIdx  = 0;
+
+  const stepLabels = [
+    'Extracting frames…',
+    'Preprocessing frames…',
+    'Running temporal analysis…',
+    'Detecting motion events…',
+    'Generating summary video…',
+    'Finalising…'
+  ];
+
+  const interval = setInterval(() => {
+    fetch(`/api/summary_status/${summaryId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.status === 'done') {
+          clearInterval(interval);
+          if (bar) bar.style.width = '100%';
+          if (status) status.textContent = '✔ Processing complete! Redirecting…';
+          setTimeout(() => window.location.href = `/results/${summaryId}`, 1500);
+        } else if (data.status === 'error') {
+          clearInterval(interval);
+          if (status) status.textContent = '✖ Processing failed. Please try again.';
+          showAlert('Processing failed. Please try again.', 'danger');
+        } else {
+          // Animate progress
+          progress = Math.min(progress + Math.random() * 15, 92);
+          if (bar) bar.style.width = progress + '%';
+
+          stepIdx = Math.min(Math.floor(progress / 17), stepLabels.length - 1);
+          if (status) status.textContent = stepLabels[stepIdx];
+
+          steps.forEach((el, i) => {
+            el.classList.toggle('active', i <= stepIdx);
+          });
+        }
+      })
+      .catch(() => { /* silently retry */ });
+  }, 1800);
+}
+
+
+// ── Compression card selector ─────────────────────────────────────────────────
+
+function initCompressionCards() {
+  document.querySelectorAll('.compression-card').forEach(card => {
+    card.addEventListener('click', () => {
+      document.querySelectorAll('.compression-card').forEach(c => c.classList.remove('selected'));
+      card.classList.add('selected');
+      const radio = card.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+    });
+  });
+}
+
+
+// ── Alert helper ──────────────────────────────────────────────────────────────
+
+function showAlert(message, type = 'info') {
+  const container = document.getElementById('alerts') || document.body;
+  const div = document.createElement('div');
+  div.className = `alert alert-${type}`;
+  div.innerHTML = `<span>${message}</span>
+    <button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:1.1rem;">×</button>`;
+  div.style.cssText = 'display:flex;position:fixed;top:1rem;right:1rem;z-index:9999;min-width:280px;max-width:400px;';
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 5000);
+}
+
+
+// ── Video comparison ──────────────────────────────────────────────────────────
+
+function initComparison() {
+  const orig = document.getElementById('origVideo');
+  const summ = document.getElementById('summVideo');
+  if (!orig || !summ) return;
+
+  document.getElementById('syncPlay')?.addEventListener('click', () => {
+    orig.play(); summ.play();
+  });
+  document.getElementById('syncPause')?.addEventListener('click', () => {
+    orig.pause(); summ.pause();
+  });
+}
+
+
+// ── Tooltip helper ────────────────────────────────────────────────────────────
+
+function initTooltips() {
+  document.querySelectorAll('[data-tip]').forEach(el => {
+    el.title = el.dataset.tip;
+  });
+}
+
+
+// ── Upload form progress ──────────────────────────────────────────────────────
+
+function initUploadProgress() {
+  const form = document.getElementById('uploadForm');
+  const bar  = document.getElementById('uploadBar');
+  const wrap = document.getElementById('uploadProgress');
+
+  if (!form) return;
+
+  form.addEventListener('submit', () => {
+    if (wrap) wrap.style.display = 'block';
+    if (bar)  bar.style.width = '0%';
+    let w = 0;
+    const iv = setInterval(() => {
+      w = Math.min(w + Math.random() * 10, 90);
+      if (bar) bar.style.width = w + '%';
+      if (w >= 90) clearInterval(iv);
+    }, 300);
+  });
+}
+
+
+// ── Confirm before delete ─────────────────────────────────────────────────────
+
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-confirm]');
+  if (!btn) return;
+  if (!confirm(btn.dataset.confirm)) e.preventDefault();
+});
+
+
+// ── Init all ─────────────────────────────────────────────────────────────────
+
+document.addEventListener('DOMContentLoaded', () => {
+  initUpload();
+  initCompressionCards();
+  initComparison();
+  initTooltips();
+  initUploadProgress();
+
+  // Dark toggle label
+  const btn = document.getElementById('darkToggle');
+  if (btn) {
+    const on = document.body.classList.contains('dark-mode');
+    btn.textContent = on ? '☀️ Light' : '🌙 Dark';
+  }
+
+  // Auto-dismiss flash alerts
+  document.querySelectorAll('.alert[data-auto]').forEach(a => {
+    setTimeout(() => a.remove(), 4000);
+  });
+
+  // Mark active sidebar item
+  document.querySelectorAll('.nav-item').forEach(link => {
+    if (link.getAttribute('href') === window.location.pathname) {
+      link.classList.add('active');
+    }
+  });
+});

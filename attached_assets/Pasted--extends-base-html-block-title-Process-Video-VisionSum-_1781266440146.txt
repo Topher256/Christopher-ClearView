@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Process Video — VisionSum{% endblock %}
+{% block page_title %}Configure Processing{% endblock %}
+
+{% block content %}
+<div style="max-width:680px;margin:0 auto;">
+
+  <!-- Video info card -->
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-video" style="color:var(--orange)"></i> Video Ready</span>
+      <span class="badge badge-success">✔ Uploaded</span>
+    </div>
+    <div class="card-body">
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Filename</div>
+          <div style="font-weight:700;">{{ video['original_name'] }}</div>
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">File Size</div>
+          <div style="font-weight:700;">{{ "%.1f"|format(video['file_size']/1024/1024) }} MB</div>
+        </div>
+        {% if video['duration'] %}
+        <div>
+          <div style="font-size:.72px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Duration</div>
+          <div style="font-weight:700;">{{ "%.1f"|format(video['duration']) }}s</div>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if video['status'] == 'ready' %}
+      <div style="margin-top:1rem;">
+        <div class="video-container" style="max-height:280px;">
+          <video controls>
+            <source src="{{ url_for('serve_upload', filename=video['filename']) }}" type="video/mp4">
+          </video>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Compression settings -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-sliders" style="color:var(--orange)"></i> Compression Settings</span>
+    </div>
+    <div class="card-body">
+      <p style="color:var(--text-muted);font-size:.875rem;margin-bottom:1.25rem;">
+        Choose how aggressively to compress. Higher compression removes more inactive footage 
+        but may discard brief events. The engine always prioritises the highest-intensity segments.
+      </p>
+
+      <form method="POST" action="{{ url_for('process_page', video_id=video['id']) }}">
+        <div class="compression-grid" style="margin-bottom:1.5rem;">
+          {% for pct, lbl, desc in [
+            (30,'Light','Keep 70% — only very long inactive gaps removed'),
+            (50,'Moderate','Keep 50% — balanced quality / compression'),
+            (70,'Aggressive','Keep 30% — only high-motion segments retained'),
+            (90,'Maximum','Keep 10% — peak events only'),
+          ] %}
+          <label class="compression-card {% if pct==50 %}selected{% endif %}">
+            <input type="radio" name="compression" value="{{ pct }}" {% if pct==50 %}checked{% endif %}>
+            <div class="compression-pct">{{ pct }}%</div>
+            <div style="font-weight:700;margin:.25rem 0;">{{ lbl }}</div>
+            <div class="compression-lbl">{{ desc }}</div>
+          </label>
+          {% endfor %}
+        </div>
+
+        <div style="padding:1rem;background:var(--orange-light);border:1px solid var(--orange-mid);border-radius:var(--radius-sm);margin-bottom:1.5rem;font-size:.85rem;color:#92400E;">
+          <i class="fa-solid fa-circle-info"></i>
+          Processing runs in the background using temporal analysis (frame differencing + background subtraction). 
+          Duration varies with video length — typical processing is 1–3× real-time.
+        </div>
+
+        <div style="display:flex;gap:1rem;">
+          <button type="submit" class="btn-orange">
+            <i class="fa-solid fa-play"></i> Start Processing
+          </button>
+          <a href="{{ url_for('dashboard') }}" class="btn-outline">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

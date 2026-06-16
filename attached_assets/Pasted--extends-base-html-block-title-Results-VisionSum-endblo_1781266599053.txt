@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Results — VisionSum{% endblock %}
+{% block page_title %}Summary Results{% endblock %}
+
+{% block content %}
+
+<!-- Header row -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+  <div>
+    <h2 style="font-size:1.3rem;font-weight:800;margin-bottom:.2rem;">{{ video['original_name'] }}</h2>
+    <p style="color:var(--text-muted);font-size:.875rem;">
+      Summary generated on {{ summary['created_at'][:16] }} ·
+      <span class="badge badge-success">✔ Complete</span>
+    </p>
+  </div>
+  <div style="display:flex;gap:.75rem;flex-wrap:wrap;">
+    <a href="{{ url_for('download_summary', summary_id=summary['id']) }}" class="btn-orange">
+      <i class="fa-solid fa-download"></i> Download Summary
+    </a>
+    <a href="{{ url_for('reports') }}" class="btn-outline">
+      <i class="fa-solid fa-chart-bar"></i> Report
+    </a>
+    <a href="{{ url_for('upload') }}" class="btn-outline">
+      <i class="fa-solid fa-plus"></i> New Video
+    </a>
+  </div>
+</div>
+
+<!-- Stat cards -->
+<div class="stat-cards" style="margin-bottom:1.5rem;">
+  <div class="stat-card">
+    <div class="stat-icon dark"><i class="fa-solid fa-clock"></i></div>
+    <div class="stat-info">
+      <div class="value">{{ "%.1f"|format(summary['original_dur']) }}s</div>
+      <div class="label">Original Duration</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="fa-solid fa-film"></i></div>
+    <div class="stat-info">
+      <div class="value">{{ "%.1f"|format(summary['summary_dur']) }}s</div>
+      <div class="label">Summary Duration</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-compress"></i></div>
+    <div class="stat-info">
+      <div class="value">{{ summary['compression'] }}%</div>
+      <div class="label">Footage Removed</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fa-solid fa-bolt"></i></div>
+    <div class="stat-info">
+      <div class="value">{{ summary['events_detected'] }}</div>
+      <div class="label">Events Detected</div>
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+
+  <!-- Original video -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Original Footage</span>
+      <span class="badge badge-gray">{{ "%.1f"|format(summary['original_dur']) }}s</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <div class="video-container">
+        <video id="origVideo" controls>
+          <source src="{{ url_for('serve_upload', filename=video['filename']) }}" type="video/mp4">
+          Your browser does not support video playback.
+        </video>
+      </div>
+    </div>
+  </div>
+
+  <!-- Summarized video -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Summarized Video</span>
+      <span class="badge badge-orange">{{ "%.1f"|format(summary['summary_dur']) }}s</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <div class="video-container">
+        <video id="summVideo" controls>
+          <source src="{{ url_for('serve_summary', filename=summary['filename']) }}" type="video/mp4">
+          Your browser does not support video playback.
+        </video>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Sync controls -->
+<div class="card" style="margin-bottom:1.5rem;">
+  <div class="card-body" style="padding:1rem 1.5rem;display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
+    <span style="font-weight:600;font-size:.875rem;">Playback Controls:</span>
+    <button id="syncPlay"  class="btn-orange btn-sm"><i class="fa-solid fa-play"></i> Play Both</button>
+    <button id="syncPause" class="btn-outline btn-sm"><i class="fa-solid fa-pause"></i> Pause Both</button>
+    <div style="margin-left:auto;font-size:.82rem;color:var(--text-muted);">
+      Time saved: <strong>{{ "%.1f"|format(summary['original_dur'] - summary['summary_dur']) }}s</strong>
+      ({{ "%.0f"|format((1 - summary['summary_dur'] / summary['original_dur']) * 100) if summary['original_dur'] else 0 }}% reduction)
+    </div>
+  </div>
+</div>
+
+<!-- Motion chart + Events -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+
+  <!-- Processing Stats -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Processing Statistics</span></div>
+    <div class="card-body">
+      <table style="width:100%;">
+        {% for label, val in [
+          ('Processing Time', (summary['processing_time']|string) + 's'),
+          ('Avg Motion Score', "%.2f"|format(summary['motion_avg'])),
+          ('Compression', (summary['compression']|string) + '%'),
+          ('Events Found', summary['events_detected']|string),
+        ] %}
+        <tr>
+          <td style="padding:.5rem 0;color:var(--text-muted);font-size:.875rem;">{{ label }}</td>
+          <td style="padding:.5rem 0;font-weight:700;font-size:.875rem;text-align:right;">{{ val }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      <!-- Duration comparison bar -->
+      <div style="margin-top:1.25rem;">
+        <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--text-muted);margin-bottom:.3rem;">
+          <span>Summary vs Original</span>
+          <span>{{ "%.0f"|format(summary['summary_dur'] / summary['original_dur'] * 100 if summary['original_dur'] else 0) }}% retained</span>
+        </div>
+        <div style="height:12px;background:var(--border);border-radius:99px;overflow:hidden;">
+          <div style="height:100%;background:var(--orange);border-radius:99px;width:{{ (summary['summary_dur'] / summary['original_dur'] * 100)|int if summary['original_dur'] else 0 }}%;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Events timeline -->
+  <div class="card">
+    <div class="card-header"><span class="card-title">Detected Events</span></div>
+    <div class="card-body" style="overflow-y:auto;max-height:280px;">
+      {% if events %}
+      <div class="timeline">
+        {% for ev in events %}
+        <div class="timeline-item">
+          <div class="timeline-time">{{ "%.1f"|format(ev['start_time']) }}s – {{ "%.1f"|format(ev['end_time']) }}s</div>
+          <div class="timeline-desc">
+            <strong>{{ ev['event_type'] }}</strong>
+            <span class="badge badge-orange" style="margin-left:.4rem;">{{ "%.0f"|format(ev['intensity']) }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:2rem;">
+        <div class="empty-icon"><i class="fa-solid fa-bolt-slash"></i></div>
+        <p>No events recorded.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

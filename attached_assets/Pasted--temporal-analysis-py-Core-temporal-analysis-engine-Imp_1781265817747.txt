@@ -1,0 +1,188 @@
+"""
+temporal_analysis.py — Core temporal analysis engine.
+Implements frame differencing, motion detection, background subtraction,
+scene change detection, and activity segmentation.
+"""
+
+import cv2
+import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class TemporalAnalyzer:
+    """
+    Analyses a video file using temporal analysis techniques to
+    identify frames / segments containing meaningful activity.
+    """
+
+    def __init__(self, video_path: str, motion_threshold: float = 25.0,
+                 min_activity_frames: int = 5, blur_size: int = 21):
+        self.video_path = video_path
+        self.motion_threshold = motion_threshold       # pixel-diff threshold
+        self.min_activity_frames = min_activity_frames  # min consecutive frames
+        self.blur_size = blur_size                     # Gaussian blur kernel
+
+        # Background subtractor (MOG2 is robust to shadows)
+        self.bg_subtractor = cv2.createBackgroundSubtractorMOG2(
+            history=200, varThreshold=40, detectShadows=False
+        )
+
+    # ── Public API ─────────────────────────────────────────────────────────────
+
+    def analyse(self) -> dict:
+        """
+        Full temporal analysis pipeline.
+        Returns a dict with keys:
+          fps, total_frames, duration, motion_scores,
+          active_frames, active_segments, events
+        """
+        cap = cv2.VideoCapture(self.video_path)
+        if not cap.isOpened():
+            raise IOError(f"Cannot open video: {self.video_path}")
+
+        fps          = cap.get(cv2.CAP_PROP_FPS) or 25.0
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        width        = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height       = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        duration     = total_frames / fps
+
+        logger.info(f"Analysing {total_frames} frames @ {fps:.1f} fps — {duration:.1f}s")
+
+        motion_scores   = []   # per-frame motion intensity [0, 100]
+        active_flags    = []   # True / False per frame
+        prev_gray       = None
+
+        frame_idx = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # ── Preprocessing ───────────────────────────────────────────────
+            small = cv2.resize(frame, (320, 180))          # scale for speed
+            gray  = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
+            gray  = cv2.GaussianBlur(gray, (self.blur_size, self.blur_size), 0)
+
+            # ── Frame Differencing ──────────────────────────────────────────
+            if prev_gray is not None:
+                diff  = cv2.absdiff(prev_gray, gray)
+                score = float(np.mean(diff))
+            else:
+                score = 0.0
+
+            # ── Background Subtraction ──────────────────────────────────────
+            fg_mask    = self.bg_subtractor.apply(small)
+            fg_pixels  = np.count_nonzero(fg_mask)
+            fg_ratio   = fg_pixels / (320 * 180) * 100.0
+
+            # ── Combined motion score ───────────────────────────────────────
+            combined = (score * 2.0 + fg_ratio) / 3.0
+            combined = min(combined * 4.0, 100.0)   # scale to [0, 100]
+
+            motion_scores.append(combined)
+            active_flags.append(combined >= self.motion_threshold)
+
+            prev_gray = gray
+            frame_idx += 1
+
+        cap.release()
+
+        # ── Post-processing: smooth & segment ──────────────────────────────
+        active_flags = self._smooth_flags(active_flags, window=int(fps))
+        segments     = self._flags_to_segments(active_flags, fps)
+        events       = self._detect_events(segments, motion_scores, fps)
+
+        return {
+            'fps':             fps,
+            'total_frames':    total_frames,
+            'duration':        duration,
+            'width':           width,
+            'height':          height,
+            'motion_scores':   motion_scores,
+            'active_frames':   sum(active_flags),
+            'active_segments': segments,
+            'events':          events,
+            'motion_avg':      float(np.mean(motion_scores)) if motion_scores else 0.0,
+            'motion_max':      float(np.max(motion_scores))  if motion_scores else 0.0,
+        }
+
+    # ── Private helpers ────────────────────────────────────────────────────────
+
+    def _smooth_flags(self, flags: list, window: int) -> list:
+        """
+        Morphological smoothing — fill short gaps and drop tiny blips.
+        Uses a sliding-window majority vote.
+        """
+        arr = np.array(flags, dtype=np.uint8)
+        kernel = np.ones(max(window, 3), dtype=np.uint8)
+
+        # Dilation: extend active regions to fill small gaps
+        dilated = np.convolve(arr, kernel, mode='same') > 0
+
+        # Erosion: remove isolated noise blips
+        eroded  = np.convolve(dilated.astype(np.uint8), kernel, mode='same') >= (window // 2)
+
+        return eroded.tolist()
+
+    def _flags_to_segments(self, flags: list, fps: float) -> list:
+        """Convert boolean flag array to list of (start_sec, end_sec) segments."""
+        segments = []
+        in_seg   = False
+        start    = 0
+
+        for i, active in enumerate(flags):
+            if active and not in_seg:
+                start  = i
+                in_seg = True
+            elif not active and in_seg:
+                # only keep segments longer than min_activity_frames
+                if (i - start) >= self.min_activity_frames:
+                    segments.append((start / fps, i / fps))
+                in_seg = False
+
+        if in_seg and (len(flags) - start) >= self.min_activity_frames:
+            segments.append((start / fps, len(flags) / fps))
+
+        return segments
+
+    def _detect_events(self, segments: list, motion_scores: list, fps: float) -> list:
+        """Classify each active segment into a labelled event."""
+        events = []
+        for start_s, end_s in segments:
+            start_f = int(start_s * fps)
+            end_f   = int(end_s   * fps)
+            scores  = motion_scores[start_f:end_f] if end_f <= len(motion_scores) else motion_scores[start_f:]
+
+            duration  = end_s - start_s
+            intensity = float(np.mean(scores)) if scores else 0.0
+            peak      = float(np.max(scores))  if scores else 0.0
+
+            # Heuristic classification
+            if peak > 70:
+                etype = 'Sudden Movement'
+            elif duration > 10:
+                etype = 'Long-Duration Activity'
+            elif intensity > 40:
+                etype = 'Moving Object'
+            elif duration < 2:
+                etype = 'Brief Motion'
+            else:
+                etype = 'General Activity'
+
+            events.append({
+                'type':      etype,
+                'start':     round(start_s, 2),
+                'end':       round(end_s,   2),
+                'duration':  round(duration, 2),
+                'intensity': round(intensity, 2),
+            })
+
+        return events
+
+
+def analyse_video(video_path: str, threshold: float = 25.0) -> dict:
+    """Convenience wrapper used by the controller."""
+    analyser = TemporalAnalyzer(video_path, motion_threshold=threshold)
+    return analyser.analyse()

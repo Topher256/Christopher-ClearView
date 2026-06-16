@@ -1,0 +1,342 @@
+"""
+database.py — SQLite database initialization and helper functions.
+All CRUD operations for users, videos, summaries, events, and reports.
+"""
+
+import sqlite3
+import os
+
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database.db')
+
+
+def get_db():
+    """Return a new database connection with row factory."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    """Create all tables if they do not exist."""
+    conn = get_db()
+    c = conn.cursor()
+
+    # Users table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            username    TEXT    UNIQUE NOT NULL,
+            email       TEXT    UNIQUE NOT NULL,
+            password    TEXT    NOT NULL,
+            role        TEXT    DEFAULT 'user',
+            created_at  TEXT    DEFAULT (datetime('now')),
+            last_login  TEXT
+        )
+    ''')
+
+    # Videos table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS videos (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id      INTEGER NOT NULL,
+            filename     TEXT    NOT NULL,
+            original_name TEXT   NOT NULL,
+            file_size    INTEGER,
+            duration     REAL,
+            fps          REAL,
+            width        INTEGER,
+            height       INTEGER,
+            status       TEXT    DEFAULT 'uploaded',
+            uploaded_at  TEXT    DEFAULT (datetime('now')),
+            FOREIGN KEY (user_id) REFERENCES users(id)
+        )
+    ''')
+
+    # Summaries table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS summaries (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            video_id        INTEGER NOT NULL,
+            user_id         INTEGER NOT NULL,
+            filename        TEXT    NOT NULL,
+            compression     INTEGER,
+            original_dur    REAL,
+            summary_dur     REAL,
+            events_detected INTEGER DEFAULT 0,
+            processing_time REAL,
+            motion_avg      REAL,
+            status          TEXT    DEFAULT 'processing',
+            created_at      TEXT    DEFAULT (datetime('now')),
+            FOREIGN KEY (video_id) REFERENCES videos(id),
+            FOREIGN KEY (user_id)  REFERENCES users(id)
+        )
+    ''')
+
+    # Events table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS events (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            summary_id  INTEGER NOT NULL,
+            event_type  TEXT,
+            start_time  REAL,
+            end_time    REAL,
+            intensity   REAL,
+            FOREIGN KEY (summary_id) REFERENCES summaries(id)
+        )
+    ''')
+
+    # Processing logs table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS processing_logs (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER,
+            video_id    INTEGER,
+            action      TEXT,
+            message     TEXT,
+            created_at  TEXT DEFAULT (datetime('now'))
+        )
+    ''')
+
+    conn.commit()
+    conn.close()
+
+
+# ── User helpers ──────────────────────────────────────────────────────────────
+
+def create_user(username, email, password_hash):
+    conn = get_db()
+    try:
+        conn.execute(
+            'INSERT INTO users (username, email, password) VALUES (?, ?, ?)',
+            (username, email, password_hash)
+        )
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+
+def get_user_by_email(email):
+    conn = get_db()
+    user = conn.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+    conn.close()
+    return user
+
+
+def get_user_by_id(user_id):
+    conn = get_db()
+    user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+    conn.close()
+    return user
+
+
+def update_last_login(user_id):
+    conn = get_db()
+    conn.execute("UPDATE users SET last_login = datetime('now') WHERE id = ?", (user_id,))
+    conn.commit()
+    conn.close()
+
+
+def update_password(user_id, new_hash):
+    conn = get_db()
+    conn.execute('UPDATE users SET password = ? WHERE id = ?', (new_hash, user_id))
+    conn.commit()
+    conn.close()
+
+
+def get_all_users():
+    conn = get_db()
+    users = conn.execute('SELECT * FROM users ORDER BY created_at DESC').fetchall()
+    conn.close()
+    return users
+
+
+def delete_user(user_id):
+    conn = get_db()
+    conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+    conn.commit()
+    conn.close()
+
+
+# ── Video helpers ─────────────────────────────────────────────────────────────
+
+def save_video(user_id, filename, original_name, file_size):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        'INSERT INTO videos (user_id, filename, original_name, file_size) VALUES (?, ?, ?, ?)',
+        (user_id, filename, original_name, file_size)
+    )
+    conn.commit()
+    vid_id = c.lastrowid
+    conn.close()
+    return vid_id
+
+
+def update_video_meta(video_id, duration, fps, width, height):
+    conn = get_db()
+    conn.execute(
+        'UPDATE videos SET duration=?, fps=?, width=?, height=?, status="ready" WHERE id=?',
+        (duration, fps, width, height, video_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_video(video_id):
+    conn = get_db()
+    v = conn.execute('SELECT * FROM videos WHERE id = ?', (video_id,)).fetchone()
+    conn.close()
+    return v
+
+
+def get_user_videos(user_id):
+    conn = get_db()
+    vs = conn.execute(
+        'SELECT * FROM videos WHERE user_id = ? ORDER BY uploaded_at DESC', (user_id,)
+    ).fetchall()
+    conn.close()
+    return vs
+
+
+def get_all_videos():
+    conn = get_db()
+    vs = conn.execute(
+        '''SELECT v.*, u.username FROM videos v
+           JOIN users u ON v.user_id = u.id
+           ORDER BY v.uploaded_at DESC'''
+    ).fetchall()
+    conn.close()
+    return vs
+
+
+def delete_video(video_id):
+    conn = get_db()
+    conn.execute('DELETE FROM videos WHERE id = ?', (video_id,))
+    conn.commit()
+    conn.close()
+
+
+# ── Summary helpers ───────────────────────────────────────────────────────────
+
+def create_summary(video_id, user_id, filename, compression):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute(
+        'INSERT INTO summaries (video_id, user_id, filename, compression) VALUES (?, ?, ?, ?)',
+        (video_id, user_id, filename, compression)
+    )
+    conn.commit()
+    sid = c.lastrowid
+    conn.close()
+    return sid
+
+
+def update_summary(summary_id, original_dur, summary_dur, events, proc_time, motion_avg, status='done'):
+    conn = get_db()
+    conn.execute(
+        '''UPDATE summaries SET original_dur=?, summary_dur=?, events_detected=?,
+           processing_time=?, motion_avg=?, status=? WHERE id=?''',
+        (original_dur, summary_dur, events, proc_time, motion_avg, status, summary_id)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_summary(summary_id):
+    conn = get_db()
+    s = conn.execute('SELECT * FROM summaries WHERE id = ?', (summary_id,)).fetchone()
+    conn.close()
+    return s
+
+
+def get_user_summaries(user_id):
+    conn = get_db()
+    rows = conn.execute(
+        '''SELECT s.*, v.original_name FROM summaries s
+           JOIN videos v ON s.video_id = v.id
+           WHERE s.user_id = ? ORDER BY s.created_at DESC''',
+        (user_id,)
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def get_all_summaries():
+    conn = get_db()
+    rows = conn.execute(
+        '''SELECT s.*, v.original_name, u.username FROM summaries s
+           JOIN videos v ON s.video_id = v.id
+           JOIN users u ON s.user_id = u.id
+           ORDER BY s.created_at DESC'''
+    ).fetchall()
+    conn.close()
+    return rows
+
+
+def delete_summary(summary_id):
+    conn = get_db()
+    conn.execute('DELETE FROM summaries WHERE id = ?', (summary_id,))
+    conn.execute('DELETE FROM events WHERE summary_id = ?', (summary_id,))
+    conn.commit()
+    conn.close()
+
+
+# ── Event helpers ─────────────────────────────────────────────────────────────
+
+def save_events(summary_id, events):
+    """events: list of dicts with keys event_type, start_time, end_time, intensity"""
+    conn = get_db()
+    conn.executemany(
+        'INSERT INTO events (summary_id, event_type, start_time, end_time, intensity) VALUES (?, ?, ?, ?, ?)',
+        [(summary_id, e['type'], e['start'], e['end'], e['intensity']) for e in events]
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_events(summary_id):
+    conn = get_db()
+    evs = conn.execute('SELECT * FROM events WHERE summary_id = ?', (summary_id,)).fetchall()
+    conn.close()
+    return evs
+
+
+# ── Log helpers ───────────────────────────────────────────────────────────────
+
+def log_action(user_id, video_id, action, message):
+    conn = get_db()
+    conn.execute(
+        'INSERT INTO processing_logs (user_id, video_id, action, message) VALUES (?, ?, ?, ?)',
+        (user_id, video_id, action, message)
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_logs(limit=100):
+    conn = get_db()
+    logs = conn.execute(
+        'SELECT * FROM processing_logs ORDER BY created_at DESC LIMIT ?', (limit,)
+    ).fetchall()
+    conn.close()
+    return logs
+
+
+# ── Stats helpers ─────────────────────────────────────────────────────────────
+
+def get_stats(user_id=None):
+    conn = get_db()
+    if user_id:
+        total_videos   = conn.execute('SELECT COUNT(*) FROM videos WHERE user_id=?', (user_id,)).fetchone()[0]
+        total_summaries = conn.execute('SELECT COUNT(*) FROM summaries WHERE user_id=?', (user_id,)).fetchone()[0]
+    else:
+        total_videos   = conn.execute('SELECT COUNT(*) FROM videos').fetchone()[0]
+        total_summaries = conn.execute('SELECT COUNT(*) FROM summaries').fetchone()[0]
+        total_users    = conn.execute('SELECT COUNT(*) FROM users').fetchone()[0]
+        conn.close()
+        return {'videos': total_videos, 'summaries': total_summaries, 'users': total_users}
+    conn.close()
+    return {'videos': total_videos, 'summaries': total_summaries}

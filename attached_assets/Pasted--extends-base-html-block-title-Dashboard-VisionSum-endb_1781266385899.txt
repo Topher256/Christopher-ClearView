@@ -1,0 +1,173 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — VisionSum{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Welcome bar -->
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.75rem;flex-wrap:wrap;gap:1rem;">
+  <div>
+    <h2 style="font-size:1.4rem;font-weight:800;margin-bottom:.25rem;">
+      Good day, {{ user['username'] }} 👋
+    </h2>
+    <p style="color:var(--text-muted);font-size:.875rem;">
+      Here's what's happening with your surveillance videos.
+    </p>
+  </div>
+  <a href="{{ url_for('upload') }}" class="btn-orange">
+    <i class="fa-solid fa-cloud-arrow-up"></i> Upload New Video
+  </a>
+</div>
+
+<!-- Stat cards -->
+<div class="stat-cards">
+  <div class="stat-card">
+    <div class="stat-icon orange"><i class="fa-solid fa-video"></i></div>
+    <div class="stat-info">
+      <div class="value">{{ stats.videos }}</div>
+      <div class="label">Videos Uploaded</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon green"><i class="fa-solid fa-film"></i></div>
+    <div class="stat-info">
+      <div class="value">{{ stats.summaries }}</div>
+      <div class="label">Summaries Generated</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon dark"><i class="fa-solid fa-clock"></i></div>
+    <div class="stat-info">
+      <div class="value">
+        {% set total_saved = summaries | selectattr('original_dur') | list %}
+        {% if total_saved %}
+          {{ "%.0f"|format(total_saved | map(attribute='original_dur') | sum - total_saved | map(attribute='summary_dur') | sum) }}s
+        {% else %}—{% endif %}
+      </div>
+      <div class="label">Total Time Saved</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-icon purple"><i class="fa-solid fa-bolt"></i></div>
+    <div class="stat-info">
+      <div class="value">
+        {% if summaries %}
+          {{ "%.0f"|format(summaries | map(attribute='compression') | list | sum / summaries | length) }}%
+        {% else %}—{% endif %}
+      </div>
+      <div class="label">Avg Compression</div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent videos & summaries -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem;">
+
+  <!-- Recent Videos -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-video" style="color:var(--orange)"></i> Recent Uploads</span>
+      <a href="{{ url_for('upload') }}" class="btn-outline btn-sm">Upload</a>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {% if videos %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>File</th><th>Duration</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for v in videos %}
+            <tr>
+              <td>
+                <div style="font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ v['original_name'] }}</div>
+                <div style="font-size:.75rem;color:var(--text-muted);">{{ "%.1f"|format(v['file_size']/1024/1024) }} MB</div>
+              </td>
+              <td>{% if v['duration'] %}{{ "%.1f"|format(v['duration']) }}s{% else %}—{% endif %}</td>
+              <td>
+                <span class="badge {% if v['status']=='ready' %}badge-success{% elif v['status']=='uploaded' %}badge-warning{% else %}badge-gray{% endif %}">
+                  {{ v['status'] }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="fa-solid fa-video-slash"></i></div>
+        <h4>No videos yet</h4>
+        <p>Upload a CCTV video to get started.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recent Summaries -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title"><i class="fa-solid fa-film" style="color:var(--orange)"></i> Recent Summaries</span>
+      <a href="{{ url_for('summaries_list') }}" class="btn-outline btn-sm">View all</a>
+    </div>
+    <div class="card-body" style="padding:0;">
+      {% if summaries %}
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Video</th><th>Compression</th><th>Events</th><th></th></tr></thead>
+          <tbody>
+            {% for s in summaries %}
+            <tr>
+              <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;">
+                {{ s['original_name'] }}
+              </td>
+              <td><span class="badge badge-orange">{{ s['compression'] }}%</span></td>
+              <td>{{ s['events_detected'] }}</td>
+              <td>
+                {% if s['status'] == 'done' %}
+                  <a href="{{ url_for('results', summary_id=s['id']) }}" class="btn-orange btn-sm">View</a>
+                {% elif s['status'] == 'processing' %}
+                  <span class="badge badge-warning">Processing…</span>
+                {% else %}
+                  <span class="badge badge-danger">Error</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon"><i class="fa-solid fa-film"></i></div>
+        <h4>No summaries yet</h4>
+        <p>Process a video to generate your first summary.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Quick-start guide -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Quick Start Guide</span>
+  </div>
+  <div class="card-body">
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1.5rem;">
+      {% for num, title, desc, icon in [
+        ('1','Upload Video','Drag & drop or browse for your CCTV file','fa-cloud-arrow-up'),
+        ('2','Choose Compression','Pick how much to compress: 30–90%','fa-sliders'),
+        ('3','Process','Our engine runs temporal analysis automatically','fa-cogs'),
+        ('4','Download','Review and download your summarized video','fa-download'),
+      ] %}
+      <div style="text-align:center;padding:1rem;">
+        <div style="width:48px;height:48px;background:var(--orange);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.1rem;margin:0 auto .75rem;">
+          <i class="fa-solid {{ icon }}"></i>
+        </div>
+        <div style="font-size:.7rem;color:var(--orange);font-weight:700;margin-bottom:.3rem;">STEP {{ num }}</div>
+        <div style="font-weight:700;margin-bottom:.3rem;">{{ title }}</div>
+        <div style="font-size:.8rem;color:var(--text-muted);">{{ desc }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}
